@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Replay Tool</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <h1>Snippet Replay Tool</h1>
+
+    <button id="record" autofocus autocomplete="off">Record</button>
+    <button id="play-pause-recording" disabled autocomplete="off">Play/Pause Recording</button>
+    <button id="stop" disabled autocomplete="off">Stop</button>
+
+    <audio id="main-audio" controls></audio>
+
+    <button id="loop" disabled autocomplete="off">Toggle Looping</button>
+    <button id="play-pause" disabled autocomplete="off">Play/Pause</button>
+    <label for="speed-range">Speed:</label> <input type="range" id="speed-range" min="0" max="10">
+    
+    <button id="add-marker" disabled autocomplete="off">Add Marker</button> <!-- can get timestamp when this button is pushed, and choose "active snippet" from list/visualization of markers; then create new audio file for snippet when another button pushed, like a loop or play button or something, using webaudio -->
+
+    <button id="loop-snippet" disabled autocomplete="off">Loop Snippet</button>
+    <button id="play-pause-snippet" disabled autocomplete="off">Play/Pause Snippet</button>
+
+    <p id="temp-marker-list"></p>
+
+    <!-- maybe have a normal screen that does all this stuff, but have another screen for when you want to focus on just one particular snippet, where you can do extra things like save, have closer visualization, etc. -->
+
+    <script src="script.js"></script>
+</body>
+</html>
