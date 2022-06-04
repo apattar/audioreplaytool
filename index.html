@@ -20,12 +20,13 @@
     <button id="play-pause" disabled autocomplete="off">Play/Pause</button>
     <label for="speed-range">Speed:</label> <input type="range" id="speed-range" min="0" max="10">
     
-    <button id="add-marker" disabled autocomplete="off">Add Marker</button> <!-- can get timestamp when this button is pushed, and choose "active snippet" from list/visualization of markers; then create new audio file for snippet when another button pushed, like a loop or play button or something, using webaudio -->
+    <button id="add-marker" disabled autocomplete="off">Add Marker</button>
+    <button id="clear-markers" disabled autocomplete="off">Clear All Markers</button>
 
     <button id="loop-snippet" disabled autocomplete="off">Loop Snippet</button>
     <button id="play-pause-snippet" disabled autocomplete="off">Play/Pause Snippet</button>
 
-    <p id="temp-marker-list"></p>
+    <div id="temp-marker-list">Markers will go here.</div>
 
     <!-- maybe have a normal screen that does all this stuff, but have another screen for when you want to focus on just one particular snippet, where you can do extra things like save, have closer visualization, etc. -->
 

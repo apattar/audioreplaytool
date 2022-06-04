@@ -8,14 +8,14 @@ let recordButton = document.getElementById("record");
 let playPauseRecordingButton = document.getElementById("play-pause-recording");
 let stopButton = document.getElementById("stop");
 let addMarkerButton = document.getElementById("add-marker");
+let clearMarkersButton = document.getElementById("clear-markers");
 let loopButton = document.getElementById("loop");
 let playPauseButton = document.getElementById("play-pause");
 let speedRange = document.getElementById("speed-range");
 let loopSnippetButton = document.getElementById("loop-snippet");
 let playPauseSnippetButton = document.getElementById("play-pause-snippet");
 
-let tempMarkerListPara = document.getElementById("temp-marker-list");
-
+let tempMarkerListCtnr = document.getElementById("temp-marker-list");
 
 // initialize settings
 // TODO maybe load from localStorage?
@@ -51,13 +51,15 @@ navigator.mediaDevices.getUserMedia({ audio: true })
             recordButton.disabled = true;
             playPauseRecordingButton.disabled = false;
             stopButton.disabled = false;
-
+            
             loopButton.disabled = true;
             playPauseButton.disabled = true;
             speedRange.disabled = true;
             addMarkerButton.disabled = true;
             loopSnippetButton.disabled = true;
             playPauseSnippetButton.disabled = true;
+
+            stopButton.focus();
         }
         playPauseRecordingButton.onclick = function() {
             if (mediaRecorder.state === "paused") {
@@ -78,6 +80,9 @@ navigator.mediaDevices.getUserMedia({ audio: true })
             loopButton.disabled = false;
             playPauseButton.disabled = false;
             speedRange.disabled = false;
+            addMarkerButton.disabled = false;
+
+            playPauseButton.focus();
         }
 
         // set recorder callbacks
@@ -113,7 +118,62 @@ playPauseButton.onclick = function() {
     }
 }
 speedRange.addEventListener("input", function() {
-    // TODO make this a log scale
+    // TODO make this a quadratic scale? also need visual indications
     audio.playbackRate = settings.minSpeed + Number(speedRange.value) * settings.speedStep();
     console.log(audio.playbackRate);
 });
+
+
+// set snippet-related button callbacks
+markers = new Map();    // maps times to associated DOM elements
+startMarker = null;
+endMarker = null;
+addMarkerButton.onclick = function() {
+    let time = audio.currentTime;
+    if (markers.has(time)) {
+        console.log("marker already exists");
+        return;
+    }
+
+    // TODO change when creating visualization
+    newMarkerButton = document.createElement("button");
+    newMarkerButton.innerHTML = time;
+    newMarkerButton.setAttribute("data-time", time); // necessary?
+    tempMarkerListCtnr.appendChild(newMarkerButton);
+
+    markers.set(time, newMarkerButton);
+    newMarkerButton.onclick = function() {
+        tempMarkerListCtnr.removeChild(newMarkerButton);
+        if (!markers.delete(time)) console.log("error deleting");
+
+        // check if need to remove active snippet
+        if (markers.size === 1) {
+            startMarker = null;
+            endMarker = null;
+        }
+    }
+
+    // if just reached enough for a snippet, set first active snippet
+    if (markers.size === 2) {
+        startMarker = Math.min(markers.keys());
+        endMarker = Math.max(markers.keys());
+    }   // otherwise, keep start and end markers the same
+}
+clearMarkersButton.onclick = function() {
+    markers.forEach(function(marker) {
+        tempMarkerListCtnr.removeChild(marker);
+    });
+    markers.clear();
+    startMarker = null;
+    endMarker = null;
+}
+
+// TODO eventually have way to call these, but for now just from console
+function setStartMarker(time) {
+    if (time === endMarker) console.log("start & end times must be different");
+    else startMarker = time;
+}
+function setEndMarker(time) {
+    if (time === startMarker) console.log("start & end times must be different");
+    else endMarker = time;
+}
