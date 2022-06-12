@@ -25,11 +25,17 @@
 
     <button id="loop-snippet" disabled autocomplete="off">Loop Snippet</button>
     <button id="play-pause-snippet" disabled autocomplete="off">Play/Pause Snippet</button>
+    <!-- play from start of snippet, loop from start of snippet, play/pause snippet which detects current active preference for stopping @ end vs. looping -->
 
-    <div id="temp-marker-list">Markers will go here.</div>
+    <div id="temp-marker-list">List of markers:</div>
+
+    <div id="space"></div>
+
+    <canvas id="learning" width="500" height="500">The Canvas element is not supported.</canvas>
 
     <!-- maybe have a normal screen that does all this stuff, but have another screen for when you want to focus on just one particular snippet, where you can do extra things like save, have closer visualization, etc. -->
 
     <script src="script.js"></script>
+    <script src="canvas.js"></script>
 </body>
 </html>

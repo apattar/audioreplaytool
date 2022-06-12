@@ -14,19 +14,75 @@ let playPauseButton = document.getElementById("play-pause");
 let speedRange = document.getElementById("speed-range");
 let loopSnippetButton = document.getElementById("loop-snippet");
 let playPauseSnippetButton = document.getElementById("play-pause-snippet");
-
 let tempMarkerListCtnr = document.getElementById("temp-marker-list");
 
 // initialize settings
 // TODO maybe load from localStorage?
 settings = {
-    minSpeed: 0.5,
-    maxSpeed: 2,
-    speedResolution: 50,
-    speedStep: _ => (settings.maxSpeed - settings.minSpeed) / settings.speedResolution,
+    speed: {
+        min: 0.5,
+        max: 2,
+        resolution: 50,
+        step: _ => (settings.speed.max - settings.speed.min) / settings.speed.resolution,
+    },
+    visualization: {
+        barTimeStep: 100,   // milliseconds
+        barWidth: 4,       // pixels
+    },
 };
 speedRange.min = 0;
-speedRange.max = settings.speedResolution;
+speedRange.max = settings.speed.resolution;
+
+
+// get canvas drawing context
+const canvas = document.querySelector("#learning");
+const canvasCtx = canvas.getContext("2d");
+
+
+// next order of business:
+// so get the bars thing working (only have to worry about record, pause, resume, stop), then update markers, then write the "draw" function
+// update markers, write "draw". Now markers should probably be stored in milliseconds
+
+// initialize model for visualization data
+let visData = {
+    recordingLength: null, // in milliseconds
+    
+    recordStartTime: null, // time that "record" or "resume" was hit, in milliseconds since start of 1970 (this is just how Date.now() works in js)
+    recordOffset: null,    // optional offset; set this when you hit "pause"
+    bars: [],
+    dataBuffer: null,
+    analyzer: null,
+    updateBars: function() {
+        // push stuff into bars based on its length and time elapsed since start of recording
+        let timeElapsed = Date.now() - visData.recordStartTime;
+        timeElapsed += visData.recordOffset;
+
+        let barsToAdd = Math.floor(timeElapsed / settings.visualization.barTimeStep) - visData.bars.length;
+
+        visData.analyzer.getByteFrequencyData(visData.dataBuffer);
+        let sum = 0; for (let i = 0; i < visData.dataBuffer.length; i++) { sum += visData.dataBuffer[i]; }
+        for (let i = 0; i < barsToAdd; i++) visData.bars.push(sum);
+
+        console.log(visData.bars);
+    },
+    updateIntervalID: null,
+
+
+    cursorLocation: 0,  // stored in terms of seconds
+    panningStart: 0,    // in seconds
+    // markers should be a part of this, TODO update markers
+
+    // next order of business: write the "draw" function
+    // using settings etc.
+    // you know what actually, should get "bars" to work correctly first in terms of timing
+    draw: function() {
+
+    }
+}
+
+
+
+
 
 
 // check to see if recording is supported
@@ -35,7 +91,6 @@ if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
     // TODO display some sort of user-visible error message
 } else console.log("getUserMedia is supported");
 
-
 // try to get stream of user's microphone
 navigator.mediaDevices.getUserMedia({ audio: true })
     .then(function(stream) {
@@ -43,31 +98,53 @@ navigator.mediaDevices.getUserMedia({ audio: true })
         let mediaRecorder = new MediaRecorder(stream);
         console.log("recorder initialized successfully");
 
+        // create audio context & audio graph for the visualization
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        let analyzer = audioCtx.createAnalyser();
+        let source = audioCtx.createMediaStreamSource(stream);
+        source.connect(analyzer);
+        
+        // initialize visData
+        visData.dataBuffer = new Uint8Array(analyzer.frequencyBinCount);
+        visData.analyzer = analyzer;
+
         // set recording-related button callbacks
         // TODO some sort of visual and textual indicator of the state of the recording would be nice, maybe instead of logging to console
         recordButton.onclick = function() {
             mediaRecorder.start();
             console.log("started recording");
+
             recordButton.disabled = true;
             playPauseRecordingButton.disabled = false;
             stopButton.disabled = false;
-            
             loopButton.disabled = true;
             playPauseButton.disabled = true;
             speedRange.disabled = true;
             addMarkerButton.disabled = true;
             loopSnippetButton.disabled = true;
             playPauseSnippetButton.disabled = true;
-
             stopButton.focus();
+
+            // initialize appropriate stuff in visData
+            visData.bars = [];
+            visData.recordStartTime = Date.now();
+            visData.recordOffset = 0;
+            visData.updateIntervalID = window.setInterval(visData.updateBars, settings.visualization.barTimeStep);
         }
         playPauseRecordingButton.onclick = function() {
             if (mediaRecorder.state === "paused") {
                 mediaRecorder.resume();
                 console.log("resumed recording");
+
+                visData.recordStartTime = Date.now();
+                visData.updateIntervalID = window.setInterval(visData.updateBars, settings.visualization.barTimeStep);
             } else {
                 mediaRecorder.pause();
                 console.log("paused recording");
+
+                visData.recordOffset += Date.now() - visData.recordStartTime;
+                window.clearInterval(visData.updateIntervalID);
             }
         }
         stopButton.onclick = function() {
@@ -76,13 +153,16 @@ navigator.mediaDevices.getUserMedia({ audio: true })
             playPauseRecordingButton.disabled = true;
             stopButton.disabled = true;
             recordButton.innerHTML = "Re-record";
-
             loopButton.disabled = false;
             playPauseButton.disabled = false;
             speedRange.disabled = false;
             addMarkerButton.disabled = false;
+            loopButton.focus(); // TODO change to pause/play
 
-            playPauseButton.focus();
+            visData.recordingLength = Date.now() - visData.recordStartTime;
+            visData.recordingLength += visData.recordOffset;
+            window.clearInterval(visData.updateIntervalID);
+
         }
 
         // set recorder callbacks
@@ -119,7 +199,7 @@ playPauseButton.onclick = function() {
 }
 speedRange.addEventListener("input", function() {
     // TODO make this a quadratic scale? also need visual indications
-    audio.playbackRate = settings.minSpeed + Number(speedRange.value) * settings.speedStep();
+    audio.playbackRate = settings.speed.min + Number(speedRange.value) * settings.speed.step();
     console.log(audio.playbackRate);
 });
 

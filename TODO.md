@@ -15,3 +15,8 @@ Visual elements to add (draw it out, then implement):
 
 
 place to enter names for snippets? Then have more features like
+
+
+## Stuff in settings
+- speed min/maxes
+- set looping as default behavior?
