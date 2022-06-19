@@ -16,6 +16,10 @@ let loopSnippetButton = document.getElementById("loop-snippet");
 let playPauseSnippetButton = document.getElementById("play-pause-snippet");
 let tempMarkerListCtnr = document.getElementById("temp-marker-list");
 
+// prepare canvas and drawing context
+let canvas = document.getElementById("audio-visualization");
+const canvasCtx = canvas.getContext("2d");
+
 // initialize settings
 // TODO maybe load from localStorage?
 settings = {
@@ -26,17 +30,35 @@ settings = {
         step: _ => (settings.speed.max - settings.speed.min) / settings.speed.resolution,
     },
     visualization: {
-        barTimeStep: 100,   // milliseconds
-        barWidth: 4,       // pixels
+        margin: 10,         // in pixels, on left, right, top, and bottom
+        barTimeStep: 10,   // milliseconds
+        barWidth: 2,        // pixels, with a single-pixel space between bars
+        markerPeek: 3,      // pixels that cursor + markers peek into the margin at the top and bottom of the visualization
+        barHeightExp: 0.7,  // modifies the heights of bars
+        onscreenBars: null,
+        onscreenTime: null,
+    },
+    colors: {
+        barRecording: "red",
+        barNotRecording: "grey",
+        visBG: "white",
+        cursor: "black", // etc.
     },
 };
 speedRange.min = 0;
 speedRange.max = settings.speed.resolution;
+function resizeUpdate() {    // TODO call on resize
+    // set the HTML properties for width and height of the canvas
+    // to their actual pixel values after applying CSS rules
+    cs = window.getComputedStyle(canvas);
+    canvas.width = parseInt(cs.getPropertyValue("width"), 10);
+    canvas.height = parseInt(cs.getPropertyValue("height"), 10);
+    console.log("canvas width: " + canvas.width + "\ncanvas height: " + canvas.height);
 
-
-// get canvas drawing context
-const canvas = document.querySelector("#learning");
-const canvasCtx = canvas.getContext("2d");
+    settings.visualization.onscreenBars = Math.floor((canvas.width - (2 * settings.visualization.margin)) / (1 + settings.visualization.barWidth));
+    settings.visualization.onscreenTime = settings.visualization.barTimeStep * settings.visualization.onscreenBars;
+}
+resizeUpdate(); // run once to set the properties initially
 
 
 // next order of business:
@@ -45,11 +67,11 @@ const canvasCtx = canvas.getContext("2d");
 
 // initialize model for visualization data
 let visData = {
-    recordingLength: null, // in milliseconds
-    
     recordStartTime: null, // time that "record" or "resume" was hit, in milliseconds since start of 1970 (this is just how Date.now() works in js)
     recordOffset: null,    // optional offset; set this when you hit "pause"
+
     bars: [],
+    maxBar: 0,   // TODO unfinished?
     dataBuffer: null,
     analyzer: null,
     updateBars: function() {
@@ -61,22 +83,75 @@ let visData = {
 
         visData.analyzer.getByteFrequencyData(visData.dataBuffer);
         let sum = 0; for (let i = 0; i < visData.dataBuffer.length; i++) { sum += visData.dataBuffer[i]; }
-        for (let i = 0; i < barsToAdd; i++) visData.bars.push(sum);
-
-        console.log(visData.bars);
+        if (sum > visData.maxBar) visData.maxBar = sum;
+        for (let i = 0; i < barsToAdd; i++) {
+            visData.bars.push(sum);
+        }
     },
     updateIntervalID: null,
+    drawRecordingIntervalID: null,
 
+    markers: new Set(),    // start by using a list. Will have to iterate through the list for draws, and finding the nearest marker when the user is trying to set the interval. Could make the second operation more efficient if the list is sorted, like a heap; could use binary search to find closest marker.
+    // will also have to iterate on every mouse move. Nope!! If you use a set, you can search for a range centered on the mouse. hold on though. that still requires iterating. I remember that you talked about how binary search trees make it easy to get stuff in ranges...
+    // what if you did something like, keep a hotlist of close markers? Calculate the hotlist when the mouse enters, 
+    // I think the simplest solution right now is to iterate. You can think of other ways to do it later
+    // I think when you pan, you'll have to reset the hover and click callbacks with the markers that are onscreen, so the complexity of hovering will be based on that.
+    // markers stored in milliseconds
+    // you can iterate through a set so it's fine
+    startMarker: null,
+    endMarker: null,
 
-    cursorLocation: 0,  // stored in terms of seconds
-    panningStart: 0,    // in seconds
-    // markers should be a part of this, TODO update markers
+    // visual stuff
+    cursorLocation: 0,  // stored in terms of milliseconds
+    panningStart: 0,    // in milliseconds
+}
 
-    // next order of business: write the "draw" function
-    // using settings etc.
-    // you know what actually, should get "bars" to work correctly first in terms of timing
-    draw: function() {
+let draw = {
+    recording: function() {
 
+        canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // only call this function regularly while we are recording
+        // requestAnimationFrame or interval? Probably interval
+        // unless you want the cursor to move more smoothly
+
+        // draw background etc.
+
+        // calculate the current recording time, if larger than canvas width can support then calculate and save panningStart, then draw appropriate subset of bars based on that
+        let currTime = (Date.now() - visData.recordStartTime) + visData.recordOffset;
+        if (currTime < settings.visualization.onscreenTime) {
+            canvasCtx.fillStyle = settings.colors.barRecording;
+            draw.renderBars(visData.bars);
+            canvasCtx.fillStyle = settings.colors.cursor;
+            canvasCtx.fillRect(   // draw the cursor
+                Math.round(settings.visualization.margin + (currTime / settings.visualization.onscreenTime) * (canvas.width - 2 * settings.visualization.margin)),
+                settings.visualization.margin - settings.visualization.markerPeek,
+                settings.visualization.barWidth,
+                canvas.height - 2 * settings.visualization.margin + 2 * settings.visualization.markerPeek
+            );
+        } else {
+            visData.panningStart = currTime - settings.visualization.onscreenTime;
+            // render only the final settings.visualization.onscreenBars bars
+            canvasCtx.fillStyle = settings.colors.barRecording;
+            draw.renderBars(visData.bars.slice(-settings.visualization.onscreenBars));
+            canvasCtx.fillStyle = settings.colors.cursor;
+            canvasCtx.fillRect(     // draw the cursor
+                canvas.width - settings.visualization.margin,
+                settings.visualization.margin - settings.visualization.markerPeek,
+                settings.visualization.barWidth,
+                canvas.height - 2 * settings.visualization.margin + 2 * settings.visualization.markerPeek
+            );
+        }
+    },
+    notRecording: function() {
+        // scrollbar/dragging panning features kick in here
+    },
+    renderBars: function(bars) {    // input is array of bars
+        for (let i = 0; i < bars.length; i++) {
+            let barHeight = Math.pow(bars[i] / visData.maxBar, settings.visualization.barHeightExp) * (canvas.height - (2 * settings.visualization.margin));
+            let barX = i * (settings.visualization.barWidth + 1) + settings.visualization.margin;
+            canvasCtx.fillRect(barX, (canvas.height / 2) - (barHeight / 2), settings.visualization.barWidth, barHeight);
+        }
     }
 }
 
@@ -126,11 +201,14 @@ navigator.mediaDevices.getUserMedia({ audio: true })
             playPauseSnippetButton.disabled = true;
             stopButton.focus();
 
-            // initialize appropriate stuff in visData
+            // initialize/reset stuff in visData
             visData.bars = [];
+            visData.maxBar = null;
             visData.recordStartTime = Date.now();
             visData.recordOffset = 0;
             visData.updateIntervalID = window.setInterval(visData.updateBars, settings.visualization.barTimeStep);
+            visData.drawRecordingIntervalID = window.setInterval(draw.recording, settings.visualization.barTimeStep);   // TODO if you want to use requestAnimationFrame, here's where to use it
+            clearMarkersButton.click(); // clear markers and start and end markers
         }
         playPauseRecordingButton.onclick = function() {
             if (mediaRecorder.state === "paused") {
@@ -139,12 +217,14 @@ navigator.mediaDevices.getUserMedia({ audio: true })
 
                 visData.recordStartTime = Date.now();
                 visData.updateIntervalID = window.setInterval(visData.updateBars, settings.visualization.barTimeStep);
+                visData.drawRecordingIntervalID = window.setInterval(draw.recording, settings.visualization.barTimeStep);
             } else {
                 mediaRecorder.pause();
                 console.log("paused recording");
 
                 visData.recordOffset += Date.now() - visData.recordStartTime;
                 window.clearInterval(visData.updateIntervalID);
+                window.clearInterval(visData.drawRecordingIntervalID);
             }
         }
         stopButton.onclick = function() {
@@ -162,7 +242,7 @@ navigator.mediaDevices.getUserMedia({ audio: true })
             visData.recordingLength = Date.now() - visData.recordStartTime;
             visData.recordingLength += visData.recordOffset;
             window.clearInterval(visData.updateIntervalID);
-
+            window.clearInterval(visData.drawRecordingIntervalID);
         }
 
         // set recorder callbacks
@@ -205,55 +285,74 @@ speedRange.addEventListener("input", function() {
 
 
 // set snippet-related button callbacks
-markers = new Map();    // maps times to associated DOM elements
-startMarker = null;
-endMarker = null;
+// markers = new Map();    // maps times to associated DOM elements
+// startMarker = null;
+// endMarker = null;
 addMarkerButton.onclick = function() {
     let time = audio.currentTime;
-    if (markers.has(time)) {
-        console.log("marker already exists");
-        return;
-    }
 
-    // TODO change when creating visualization
-    newMarkerButton = document.createElement("button");
-    newMarkerButton.innerHTML = time;
-    newMarkerButton.setAttribute("data-time", time); // necessary?
-    tempMarkerListCtnr.appendChild(newMarkerButton);
+    // if (markers.has(time)) {
+    //     console.log("marker already exists");
+    //     return;
+    // }
+    // // TODO change when creating visualization
+    // newMarkerButton = document.createElement("button");
+    // newMarkerButton.innerHTML = time;
+    // newMarkerButton.setAttribute("data-time", time); // necessary?
+    // tempMarkerListCtnr.appendChild(newMarkerButton);
 
-    markers.set(time, newMarkerButton);
-    newMarkerButton.onclick = function() {
-        tempMarkerListCtnr.removeChild(newMarkerButton);
-        if (!markers.delete(time)) console.log("error deleting");
+    // markers.set(time, newMarkerButton);
+    // newMarkerButton.onclick = function() {
+    //     tempMarkerListCtnr.removeChild(newMarkerButton);
+    //     if (!markers.delete(time)) console.log("error deleting");
 
-        // check if need to remove active snippet
-        if (markers.size === 1) {
-            startMarker = null;
-            endMarker = null;
-        }
-    }
+    //     // check if need to remove active snippet
+    //     if (markers.size === 1) {
+    //         startMarker = null;
+    //         endMarker = null;
+    //     }
+    // }
+
+    visData.markers.add(time);
 
     // if just reached enough for a snippet, set first active snippet
-    if (markers.size === 2) {
-        startMarker = Math.min(markers.keys());
-        endMarker = Math.max(markers.keys());
+    if (visData.markers.size === 2) {
+        console.log(visData.markers.values());
+        visData.startMarker = Math.min(...visData.markers.values());
+        visData.endMarker = Math.max(...visData.markers.values());
     }   // otherwise, keep start and end markers the same
+
+    console.log(visData.markers);
+    console.log(visData.startMarker);
+    console.log(visData.endMarker);
 }
 clearMarkersButton.onclick = function() {
-    markers.forEach(function(marker) {
-        tempMarkerListCtnr.removeChild(marker);
-    });
-    markers.clear();
-    startMarker = null;
-    endMarker = null;
+    // markers.forEach(function(marker) {
+    //     tempMarkerListCtnr.removeChild(marker);
+    // });
+    visData.markers.clear();
+    visData.startMarker = null;
+    visData.endMarker = null;
+
+    console.log(visData.markers);
+    console.log(visData.startMarker);
+    console.log(visData.endMarker);
 }
 
 // TODO eventually have way to call these, but for now just from console
 function setStartMarker(time) {
-    if (time === endMarker) console.log("start & end times must be different");
-    else startMarker = time;
+    if (time === visData.endMarker) console.log("start & end times must be different");
+    else visData.startMarker = time;
+
+    console.log(visData.markers);
+    console.log(visData.startMarker);
+    console.log(visData.endMarker);
 }
 function setEndMarker(time) {
-    if (time === startMarker) console.log("start & end times must be different");
-    else endMarker = time;
+    if (time === visData.startMarker) console.log("start & end times must be different");
+    else visData.endMarker = time;
+
+    console.log(visData.markers);
+    console.log(visData.startMarker);
+    console.log(visData.endMarker);
 }
