@@ -1,6 +1,8 @@
 # TODO
 
-maybe you could use some sort of concave scale for the heights of bars?
+// next: implement panning
+
+maybe double tap to add marker?
 
 maxBar stuff - is 0 when no bars, updates when bars added, reset to 0 when re-record
 then renderBars function
@@ -24,6 +26,10 @@ Visual elements to add (draw it out, then implement):
 
 
 place to enter names for snippets? Then have more features like
+
+
+
+
 
 
 
