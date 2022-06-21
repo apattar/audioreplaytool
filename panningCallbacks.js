@@ -1,15 +1,8 @@
 
-// dragging controls should not apply when the roll is not big enough
 
 // next order of business:
 // link to audio element, and you want it to scroll while playing, with cursor like 3/4 of the way through unless not possible or something.
 // be mindful of speed setting
-
-// maybe you should migrate all the visualization code to its own
-// files and repo. That will make it reusable and configurable
-
-// different shapes for the bars? Cool
-// TODO visual indications of start and end. Just, in draw.notRecording, detect if at start and draw something if so, and ditto for end.
 
 
 // this object is used to store data for drag panning
@@ -99,7 +92,8 @@ canvas.onpointerup = function(e) {
 
     // if in bounds and not a drag, set cursor to current location
     if ((settings.visualization.margin < e.offsetX && e.offsetX < Math.min(settings.visualization.margin + visData.bars.length * (settings.visualization.barWidth + 1), canvas.width - settings.visualization.margin)) && !clickData.dragging) {
-        visData.cursorLocation = getClickedTime(e)
+        visData.cursorLocation = getClickedTime(e);
+        audio.currentTime = visData.cursorLocation / 1000;
     }
 
     draw.notRecording();
@@ -111,9 +105,6 @@ function getClickedTime(e) {
 }
 
 
-// first do visualization, then integrate mediaElement
-
-
 
 panLeftButton.onclick = function() {
     visData.panningStart = Math.max(0, visData.panningStart - 3000)
@@ -123,3 +114,4 @@ panRightButton.onclick = function() {
     visData.panningStart = Math.min(visData.totalRecordingLength - settings.visualization.onscreenTime, visData.panningStart + 3000)
     draw.notRecording();
 }
+

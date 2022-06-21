@@ -1,5 +1,19 @@
 # TODO
 
+
+// only your own play and pause buttons are valid
+
+// there's a bug with pausing multiple times while recording... i think recordingLength might be set wrong or something
+
+
+
+
+// different shapes for the bars? Cool
+// TODO visual indications of start and end. Just, in draw.notRecording, detect if at start and draw something if so, and ditto for end.
+
+
+
+
 // next: implement panning
 
 maybe double tap to add marker?
