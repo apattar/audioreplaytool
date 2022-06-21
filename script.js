@@ -32,18 +32,22 @@ settings = {
         step: _ => (settings.speed.max - settings.speed.min) / settings.speed.resolution,
     },
     visualization: {
-        margin: 10,         // in pixels, on left, right, top, and bottom
+        margin: 30,         // in pixels, on left, right, top, and bottom
         barTimeStep: 10,   // milliseconds
         barWidth: 2,        // pixels, with a single-pixel space between bars
-        markerPeek: 3,      // pixels that cursor + markers peek into the margin at the top and bottom of the visualization
-        barHeightExp: 0.5,  // modifies the heights of bars
         onscreenBars: null,
         onscreenTime: null,
+
+        barHeightExp: 0.5,  // modifies the heights of bars
+        markerPeek: 3,      // pixels that cursor + markers peek into the margin at the top and bottom of the visualization
+        overscrollShadowBlur: 15,
+        shadowBoxWidth: 3,
     },
     colors: {
         barRecording: "red",
         barNotRecording: "purple",
         visBG: "rgb(240, 240, 240)",    // a very light grey
+        overscrollShadow: "black",
         cursor: "black", // etc.
         dummyCursor: "rgba(0, 0, 0, 0.5)", // etc.
     },
@@ -153,10 +157,24 @@ let draw = {
             );
         }
     },
-    notRecording: function() {
+    notRecording: function(overscrollShadowX) {
         canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
         // scrollbar/dragging panning features kick in here
 
+        // draw overscroll shadow if applicable
+        if (overscrollShadowX) {
+            canvasCtx.shadowColor = settings.colors.overscrollShadow;
+            canvasCtx.shadowBlur = settings.visualization.overscrollShadowBlur;
+            canvasCtx.fillStyle = settings.colors.visBG;
+            canvasCtx.fillRect(
+                overscrollShadowX,
+                settings.visualization.margin,
+                settings.visualization.shadowBoxWidth,
+                canvas.height - 2 * settings.visualization.margin
+            );
+            canvasCtx.shadowColor = null;
+            canvasCtx.shadowBlur = null;
+        }
 
         // draw background
         canvasCtx.fillStyle = settings.colors.visBG;
@@ -203,7 +221,15 @@ let draw = {
             let barX = i * (settings.visualization.barWidth + 1) + settings.visualization.margin;
             canvasCtx.fillRect(barX, (canvas.height / 2) - (barHeight / 2), settings.visualization.barWidth, barHeight);
         }
-    }
+    },
+
+    overscrollShadow: function(offset) {
+        if (offset < 0) {
+                
+        } else if (offset > 0) {
+
+        }
+    },
 }
 
 
