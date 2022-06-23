@@ -118,6 +118,7 @@ loopButton.onclick = function() {
 playPauseButton.onclick = function() {
     if (audio.paused) {
         audio.play();
+        draw.startPlayingAnimation();
     } else {
         audio.pause();
     }

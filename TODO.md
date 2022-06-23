@@ -1,6 +1,8 @@
 # TODO
 
 
+bug with short recordings and panning buttons
+
 // only your own play and pause buttons are valid
 
 // there's a bug with pausing multiple times while recording... i think recordingLength might be set wrong or something

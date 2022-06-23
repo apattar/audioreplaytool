@@ -119,4 +119,12 @@ let draw = {
 
         }
     },
+
+
+    startPlayingAnimation: function() {
+        visData.cursorLocation = audio.currentTime * 1000;
+        draw.notRecording();
+        if (!audio.paused) window.requestAnimationFrame(startPlayingAnimation);
+    }
 }
+
